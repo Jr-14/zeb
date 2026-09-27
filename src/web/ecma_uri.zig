@@ -11,7 +11,7 @@ pub const encodeURIAlloc = encodeURI.encodeURIAlloc;
 const URL_BYTES_MAX = 64 * 1024; // 64 KiB;
 
 pub fn main(init: std.process.Init) !void {
-    const args = try std.process.Args.Iterator.initAllocator(
+    var args = try std.process.Args.Iterator.initAllocator(
         init.minimal.args,
         init.gpa,
     );
@@ -22,19 +22,28 @@ pub fn main(init: std.process.Init) !void {
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--encode")) {
             const url = args.next();
-            if (!url) {
+            if (url) |u| {
+                const encodedURI = try encodeURIAlloc(init.gpa, u[0..]);
+                defer init.gpa.free(encodedURI);
+                std.debug.print("{s}\n", .{encodedURI});
+            } else {
                 @panic("Requires URL");
             }
-
         } else if (std.mem.eql(u8, arg, "--decode")) {
-            var urlBuffer: [URL_BYTES_MAX]u8 = undefined;
+            const url = args.next();
+            if (url) |u| {
+                const decodedURI = try decodeURIAlloc(init.gpa, u[0..]);
+                defer init.gpa.free(decodedURI);
+                std.debug.print("{s}\n", .{decodedURI});
+            } else {
+                @panic("Requires URL");
+            }
         } else {
             // TODO: Print usage
+            @panic("Should only use --encode or --decode\n");
         }
     }
 }
-
-fn encode(allocator: std.mem.Allocator, url: []const u8) void {}
 
 test "decodeURI" {
     _ = @import("decodeURI.zig");

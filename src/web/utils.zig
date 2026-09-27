@@ -14,4 +14,3 @@ pub const percentEscapeTable: [256][3]u8 = blk: {
 
     break :blk table;
 };
-
