@@ -1,6 +1,7 @@
 const std = @import("std");
-const decodeURI = @import("decodeURI.zig");
-const encodeURI = @import("encodeURI.zig");
+const web = @import("web/root.zig");
+const decodeURI = web.decodeURI;
+const encodeURI = web.encodeURI;
 
 pub const DecodeError = decodeURI.DecodeError;
 pub const decodeURIAlloc = decodeURI.decodeURIAlloc;
@@ -43,12 +44,4 @@ pub fn main(init: std.process.Init) !void {
             @panic("Should only use --encode or --decode\n");
         }
     }
-}
-
-test "decodeURI" {
-    _ = @import("decodeURI.zig");
-}
-
-test "encodeURI" {
-    _ = @import("encodeURI.zig");
 }

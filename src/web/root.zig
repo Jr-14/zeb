@@ -1,11 +1,10 @@
-const ecma_uri = @import("ecma_uri.zig");
+pub const decodeURI = @import("decodeURI.zig");
+pub const encodeURI = @import("encodeURI.zig");
 
-pub const DecodeError = ecma_uri.DecodeError;
-pub const decodeURIAlloc = ecma_uri.decodeURIAlloc;
+test "decodeURI" {
+    _ = @import("decodeURI.zig");
+}
 
-pub const EncodeError = ecma_uri.EncodeError;
-pub const encodeURIAlloc = ecma_uri.encodeURIAlloc;
-
-test {
-    _ = ecma_uri;
+test "encodeURI" {
+    _ = @import("encodeURI.zig");
 }
