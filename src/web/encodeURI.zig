@@ -6,11 +6,14 @@ const testing = std.testing;
 
 /// It escapes all characters except the following
 /// A-Z a-z 0-9 - _ . ! ~ * ' ( )
-pub fn encodeURIComponentAlloc(allocator: std.mem.Allocator, uriComponent: []u8) ![]u8 {
+pub fn encodeURIComponentAlloc(allocator: std.mem.Allocator, uriComponent: []const u8) ![]u8 {
     var output: std.Io.Writer.Allocating = .init(allocator);
     defer output.deinit();
 
-    try Encode(&output.writer, uriComponent, isEncodeUriComponentUnescaped);
+    Encode(&output.writer, uriComponent, isEncodeUriComponentUnescaped) catch |err| switch (err) {
+        error.InvalidUtf8 => return error.URIError,
+        else => return err,
+    };
 
     return try output.toOwnedSlice();
 }
