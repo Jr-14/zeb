@@ -29,6 +29,19 @@ pub fn decodeURIAlloc(allocator: std.mem.Allocator, string: []const u8) ![]u8 {
     return try output.toOwnedSlice();
 }
 
+fn isDecodeURIComponentPreserved(_: u8) bool {
+    return false;
+}
+
+pub fn decodeURIComponentAlloc(allocator: std.mem.Allocator, string: []const u8) ![]u8 {
+    var output: std.Io.Writer.Allocating = .init(allocator);
+    defer output.deinit();
+
+    try Decode(&output.writer, string, isDecodeURIComponentPreserved);
+
+    return try output.toOwnedSlice();
+}
+
 pub const DecodeError = std.Io.Writer.Error || error{ URIError, InvalidUtf8 };
 
 /// https://tc39.es/ecma262/multipage/global-object.html#sec-decode
