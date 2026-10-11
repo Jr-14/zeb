@@ -29,13 +29,15 @@ pub fn decodeURIAlloc(allocator: std.mem.Allocator, string: []const u8) ![]u8 {
     return try output.toOwnedSlice();
 }
 
+fn isDecodeURIComponentPreserved(_: u8) bool {
+    return false;
+}
+
 pub fn decodeURIComponentAlloc(allocator: std.mem.Allocator, string: []const u8) ![]u8 {
     var output: std.Io.Writer.Allocating = .init(allocator);
     defer output.deinit();
 
-    try Decode(&output.writer, string, blk: {
-        break :blk false;
-    });
+    try Decode(&output.writer, string, isDecodeURIComponentPreserved);
 
     return try output.toOwnedSlice();
 }
