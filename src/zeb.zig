@@ -22,6 +22,12 @@ fn bufferedPrintToStdout(io: std.Io, string: []const u8) !void {
     try std.Io.File.stdout().writeStreamingAll(io, line);
 }
 
+fn fail(io: std.Io, message: []const u8) !noreturn {
+    try std.Io.File.stderr().writeStreamingAll(io, message);
+    try std.Io.File.stderr().writeStreamingAll(io, "\n");
+    std.process.exit(1);
+}
+
 pub fn main(init: std.process.Init) !void {
     var args = try std.process.Args.Iterator.initAllocator(
         init.minimal.args,
@@ -29,17 +35,13 @@ pub fn main(init: std.process.Init) !void {
     );
     defer args.deinit();
 
-    _ = args.next(); // First arg is executable path name
-    const command = std.meta.stringToEnum(Command, args.next() orelse "") orelse {
-        @panic("Should only use encode or decode\n");
-    };
+    _ = args.next(); // First arg is executable path name so we skip it
+    const command = std.meta.stringToEnum(Command, args.next() orelse "") orelse try fail(init.io, "Should only use encode or decode");
 
     switch (command) {
         .decode => {
-            const subCommand = std.meta.stringToEnum(SubCommand, args.next() orelse "") orelse {
-                @panic("Should only use uri or uriComponent\n");
-            };
-            var uri = args.next() orelse @panic("Requires URL");
+            const subCommand = std.meta.stringToEnum(SubCommand, args.next() orelse "") orelse try fail(init.io, "Should only use uri or uriComponent");
+            const uri = args.next() orelse try fail(init.io, "Requires URL");
             switch (subCommand) {
                 .uri => {
                     const decoded = try decodeURIAlloc(init.gpa, uri[0..]);
@@ -54,10 +56,8 @@ pub fn main(init: std.process.Init) !void {
             }
         },
         .encode => {
-            const subCommand = std.meta.stringToEnum(SubCommand, args.next() orelse "") orelse {
-                @panic("Should only use uri or uriComponent\n");
-            };
-            var uri = args.next() orelse @panic("Requires URL");
+            const subCommand = std.meta.stringToEnum(SubCommand, args.next() orelse "") orelse try fail(init.io, "Should only use uri or uriComponent");
+            const uri = args.next() orelse try fail(init.io, "Requires URL");
             switch (subCommand) {
                 .uri => {
                     const encoded = try encodeURIAlloc(init.gpa, uri[0..]);
