@@ -16,6 +16,12 @@ const URL_BYTES_MAX = 64 * 1024; // 64 KiB;
 const Command = enum { encode, decode };
 const SubCommand = enum { uri, uriComponent };
 
+fn bufferedPrintToStdout(io: std.Io, string: []const u8) !void {
+    var buffer: [URL_BYTES_MAX + 1]u8 = undefined;
+    const line = try std.fmt.bufPrint(&buffer, "{s}\n", .{string});
+    try std.Io.File.stdout().writeStreamingAll(io, line);
+}
+
 pub fn main(init: std.process.Init) !void {
     var args = try std.process.Args.Iterator.initAllocator(
         init.minimal.args,
@@ -38,12 +44,12 @@ pub fn main(init: std.process.Init) !void {
                 .uri => {
                     const decoded = try decodeURIAlloc(init.gpa, uri[0..]);
                     defer init.gpa.free(decoded);
-                    std.debug.print("{s}\n", .{decoded});
+                    try bufferedPrintToStdout(init.io, decoded);
                 },
                 .uriComponent => {
                     const decoded = try decodeURIComponentAlloc(init.gpa, uri[0..]);
                     defer init.gpa.free(decoded);
-                    std.debug.print("{s}\n", .{decoded});
+                    try bufferedPrintToStdout(init.io, decoded);
                 },
             }
         },
@@ -56,12 +62,12 @@ pub fn main(init: std.process.Init) !void {
                 .uri => {
                     const encoded = try encodeURIAlloc(init.gpa, uri[0..]);
                     defer init.gpa.free(encoded);
-                    std.debug.print("{s}\n", .{encoded});
+                    try bufferedPrintToStdout(init.io, encoded);
                 },
                 .uriComponent => {
                     const encoded = try encodeURIComponentAlloc(init.gpa, uri[0..]);
                     defer init.gpa.free(encoded);
-                    std.debug.print("{s}\n", .{encoded});
+                    try bufferedPrintToStdout(init.io, encoded);
                 },
             }
         },
