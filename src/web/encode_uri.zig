@@ -1,16 +1,15 @@
 const std = @import("std");
-const percentEscapeTable = @import("utils.zig").percentEscapeTable;
+const percent_escape_table = @import("utils.zig").percent_escape_table;
 
-const Uri = std.Uri;
 const testing = std.testing;
 
 /// It escapes all characters except the following
 /// A-Z a-z 0-9 - _ . ! ~ * ' ( )
-pub fn encodeURIComponentAlloc(allocator: std.mem.Allocator, uriComponent: []const u8) ![]u8 {
+pub fn encodeURIComponentAlloc(allocator: std.mem.Allocator, uri_component: []const u8) ![]u8 {
     var output: std.Io.Writer.Allocating = .init(allocator);
     defer output.deinit();
 
-    Encode(&output.writer, uriComponent, isEncodeUriComponentUnescaped) catch |err| switch (err) {
+    encode(&output.writer, uri_component, isEncodeUriComponentUnescaped) catch |err| switch (err) {
         error.InvalidUtf8 => return error.URIError,
         else => return err,
     };
@@ -49,7 +48,7 @@ pub fn encodeURIAlloc(allocator: std.mem.Allocator, string: []const u8) ![]u8 {
     var output: std.Io.Writer.Allocating = .init(allocator);
     defer output.deinit();
 
-    Encode(&output.writer, string, isEncodeUriUnescaped) catch |err| switch (err) {
+    encode(&output.writer, string, isEncodeUriUnescaped) catch |err| switch (err) {
         error.InvalidUtf8 => return error.URIError,
         else => return err,
     };
@@ -87,12 +86,12 @@ fn isEncodeUriUnescaped(byte: u8) bool {
 pub const EncodeError = std.Io.Writer.Error || error{InvalidUtf8};
 
 /// https://tc39.es/ecma262/multipage/global-object.html#sec-decode
-fn Encode(writer: *std.Io.Writer, string: []const u8, isValidChar: fn (u8) bool) EncodeError!void {
+fn encode(writer: *std.Io.Writer, string: []const u8, is_valid_char: fn (u8) bool) EncodeError!void {
     if (!std.unicode.utf8ValidateSlice(string)) {
         return error.InvalidUtf8;
     }
 
-    try std.Uri.Component.percentEncode(writer, string, isValidChar);
+    try std.Uri.Component.percentEncode(writer, string, is_valid_char);
 }
 
 test "encodeURIAlloc: MDN Web example" {
@@ -105,7 +104,7 @@ test "encodeURIAlloc: MDN Web example" {
 // This is the UTF-8 equivalent of the Test262 tests for lone UTF-16
 // surrogates, which cannot be represented by this byte-oriented API.
 test "encodeURIAlloc: reject malformed UTF-8 bytes" {
-    const invalidInputs = [_][]const u8{
+    const invalid_inputs = [_][]const u8{
         &[_]u8{0x80}, // lone continuation byte
         &[_]u8{0xC2}, // truncated two-byte sequence
         &[_]u8{ 0xC2, 0x20 }, // invalid continuation byte
@@ -118,7 +117,7 @@ test "encodeURIAlloc: reject malformed UTF-8 bytes" {
         &[_]u8{ 0xF5, 0x80, 0x80, 0x80 }, // invalid four-byte lead byte
     };
 
-    for (invalidInputs) |input| {
+    for (invalid_inputs) |input| {
         if (encodeURIAlloc(testing.allocator, input)) |encoded| {
             testing.allocator.free(encoded);
             return error.TestUnexpectedResult;
@@ -136,7 +135,7 @@ test "encodeURIAlloc: reject malformed UTF-8 bytes" {
 //
 // https://github.com/tc39/test262/blob/main/test/built-ins/encodeURI/S15.1.3.3_A2.1_T1.js
 //
-// Percent-encode ASCII bytes outside uriReserved, uriUnescaped, and '#'.
+// Percent-encode ASCII bytes outside uri_reserved, uri_unescaped, and '#'.
 test "encodeURIAlloc: percent-encode escaped ASCII bytes" {
     const unescaped = ";/?:@&=+$,#-_.!~*'()ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -148,7 +147,7 @@ test "encodeURIAlloc: percent-encode escaped ASCII bytes" {
         const encoded = try encodeURIAlloc(testing.allocator, &input);
         defer testing.allocator.free(encoded);
 
-        try testing.expectEqualSlices(u8, percentEscapeTable[byte][0..], encoded);
+        try testing.expectEqualSlices(u8, percent_escape_table[byte][0..], encoded);
     }
 }
 
@@ -160,11 +159,11 @@ test "encodeURIAlloc: percent-encode valid two-byte UTF-8 sequences" {
     var expected: [6]u8 = undefined;
     for (0xC2..0xE0) |i| {
         input[0] = @intCast(i);
-        @memcpy(expected[0..3], percentEscapeTable[input[0]][0..]);
+        @memcpy(expected[0..3], percent_escape_table[input[0]][0..]);
 
         for (0x80..0xC0) |j| {
             input[1] = @intCast(j);
-            @memcpy(expected[3..6], percentEscapeTable[input[1]][0..]);
+            @memcpy(expected[3..6], percent_escape_table[input[1]][0..]);
 
             const encoded = try encodeURIAlloc(testing.allocator, &input);
             defer testing.allocator.free(encoded);
@@ -181,13 +180,13 @@ test "encodeURIAlloc: percent-encode three-byte UTF-8 sequences below the surrog
     var input: [4]u8 = undefined;
     var expected: [9]u8 = undefined;
     for (0x0800..0xD800) |value| {
-        const codePoint: u21 = @intCast(value);
-        const length = try std.unicode.utf8Encode(codePoint, &input);
+        const code_point: u21 = @intCast(value);
+        const length = try std.unicode.utf8Encode(code_point, &input);
         try testing.expectEqual(@as(u3, 3), length);
 
         for (input[0..length], 0..) |byte, index| {
             const start = index * 3;
-            @memcpy(expected[start .. start + 3], percentEscapeTable[byte][0..]);
+            @memcpy(expected[start .. start + 3], percent_escape_table[byte][0..]);
         }
 
         const encoded = try encodeURIAlloc(testing.allocator, input[0..length]);
@@ -202,19 +201,19 @@ test "encodeURIAlloc: percent-encode three-byte UTF-8 sequences below the surrog
 // Test four-byte UTF-8 sequences across every supplementary-plane block,
 // using the three within-block offsets selected by Test262.
 test "encodeURIAlloc: percent-encode four-byte UTF-8 sequences by block" {
-    const withinBlockOffsets = [_]u21{ 0x000, 0x1FF, 0x3FF };
+    const within_block_offsets = [_]u21{ 0x000, 0x1FF, 0x3FF };
     var input: [4]u8 = undefined;
     var expected: [12]u8 = undefined;
 
     for (0..0x400) |block| {
-        for (withinBlockOffsets) |offset| {
-            const codePoint: u21 = @intCast(0x10000 + block * 0x400 + offset);
-            const length = try std.unicode.utf8Encode(codePoint, &input);
+        for (within_block_offsets) |offset| {
+            const code_point: u21 = @intCast(0x10000 + block * 0x400 + offset);
+            const length = try std.unicode.utf8Encode(code_point, &input);
             try testing.expectEqual(@as(u3, 4), length);
 
             for (input[0..length], 0..) |byte, index| {
                 const start = index * 3;
-                @memcpy(expected[start .. start + 3], percentEscapeTable[byte][0..]);
+                @memcpy(expected[start .. start + 3], percent_escape_table[byte][0..]);
             }
 
             const encoded = try encodeURIAlloc(testing.allocator, input[0..length]);
@@ -230,19 +229,19 @@ test "encodeURIAlloc: percent-encode four-byte UTF-8 sequences by block" {
 // Test four-byte UTF-8 sequences at every offset within three
 // supplementary-plane blocks selected by Test262.
 test "encodeURIAlloc: percent-encode four-byte UTF-8 sequences by offset" {
-    const blockOffsets = [_]u21{ 0x000, 0x3FF, 0x1FF };
+    const block_offsets = [_]u21{ 0x000, 0x3FF, 0x1FF };
     var input: [4]u8 = undefined;
     var expected: [12]u8 = undefined;
 
     for (0..0x400) |offset| {
-        for (blockOffsets) |block| {
-            const codePoint: u21 = @intCast(0x10000 + block * 0x400 + offset);
-            const length = try std.unicode.utf8Encode(codePoint, &input);
+        for (block_offsets) |block| {
+            const code_point: u21 = @intCast(0x10000 + block * 0x400 + offset);
+            const length = try std.unicode.utf8Encode(code_point, &input);
             try testing.expectEqual(@as(u3, 4), length);
 
             for (input[0..length], 0..) |byte, index| {
                 const start = index * 3;
-                @memcpy(expected[start .. start + 3], percentEscapeTable[byte][0..]);
+                @memcpy(expected[start .. start + 3], percent_escape_table[byte][0..]);
             }
 
             const encoded = try encodeURIAlloc(testing.allocator, input[0..length]);
@@ -260,13 +259,13 @@ test "encodeURIAlloc: percent-encode three-byte UTF-8 sequences above the surrog
     var input: [4]u8 = undefined;
     var expected: [9]u8 = undefined;
     for (0xE000..0x10000) |value| {
-        const codePoint: u21 = @intCast(value);
-        const length = try std.unicode.utf8Encode(codePoint, &input);
+        const code_point: u21 = @intCast(value);
+        const length = try std.unicode.utf8Encode(code_point, &input);
         try testing.expectEqual(@as(u3, 3), length);
 
         for (input[0..length], 0..) |byte, index| {
             const start = index * 3;
-            @memcpy(expected[start .. start + 3], percentEscapeTable[byte][0..]);
+            @memcpy(expected[start .. start + 3], percent_escape_table[byte][0..]);
         }
 
         const encoded = try encodeURIAlloc(testing.allocator, input[0..length]);
@@ -278,10 +277,10 @@ test "encodeURIAlloc: percent-encode three-byte UTF-8 sequences above the surrog
 
 // https://github.com/tc39/test262/blob/main/test/built-ins/encodeURI/S15.1.3.3_A3.1_T1.js
 //
-// Leave every uriReserved character unescaped.
-test "encodeURIAlloc: leave uriReserved characters unescaped" {
-    const uriReserved = ";/?:@&=+$,";
-    for (uriReserved) |character| {
+// Leave every uri_reserved character unescaped.
+test "encodeURIAlloc: leave uri_reserved characters unescaped" {
+    const uri_reserved = ";/?:@&=+$,";
+    for (uri_reserved) |character| {
         const input = [_]u8{character};
         const encoded = try encodeURIAlloc(testing.allocator, &input);
         defer testing.allocator.free(encoded);
@@ -308,8 +307,8 @@ test "encodeURIAlloc: leave ASCII alphabetic characters unescaped" {
 //
 // Leave ASCII decimal digits unescaped.
 test "encodeURIAlloc: leave ASCII decimal digits unescaped" {
-    const decimalDigits = "0123456789";
-    for (decimalDigits) |character| {
+    const decimal_digits = "0123456789";
+    for (decimal_digits) |character| {
         const input = [_]u8{character};
         const encoded = try encodeURIAlloc(testing.allocator, &input);
         defer testing.allocator.free(encoded);
@@ -320,10 +319,10 @@ test "encodeURIAlloc: leave ASCII decimal digits unescaped" {
 
 // https://github.com/tc39/test262/blob/main/test/built-ins/encodeURI/S15.1.3.3_A3.2_T3.js
 //
-// Leave uriMark characters unescaped.
-test "encodeURIAlloc: leave uriMark characters unescaped" {
-    const uriMark = "-_.!~*'()";
-    for (uriMark) |character| {
+// Leave uri_mark characters unescaped.
+test "encodeURIAlloc: leave uri_mark characters unescaped" {
+    const uri_mark = "-_.!~*'()";
+    for (uri_mark) |character| {
         const input = [_]u8{character};
         const encoded = try encodeURIAlloc(testing.allocator, &input);
         defer testing.allocator.free(encoded);
@@ -345,7 +344,7 @@ test "encodeURIAlloc: leave fragment delimiter unescaped" {
 
 // https://github.com/tc39/test262/blob/main/test/built-ins/encodeURI/S15.1.3.3_A4_T1.js
 //
-// Encode URIs containing the English alphabet and unescaped URI characters.
+// encode URIs containing the English alphabet and unescaped URI characters.
 test "encodeURIAlloc: encode the English alphabet" {
     // Check #1
     {
@@ -377,7 +376,7 @@ test "encodeURIAlloc: encode the English alphabet" {
 
 // https://github.com/tc39/test262/blob/main/test/built-ins/encodeURI/S15.1.3.3_A4_T2.js
 //
-// Encode URIs containing the Russian alphabet.
+// encode URIs containing the Russian alphabet.
 test "encodeURIAlloc: encode the Russian alphabet" {
     // Check #1
     {

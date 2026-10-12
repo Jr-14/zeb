@@ -1,23 +1,29 @@
 const std = @import("std");
 const web = @import("web/root.zig");
-const decodeURI = web.decodeURI;
-const encodeURI = web.encodeURI;
+const decode_uri = web.decode_uri;
+const encode_uri = web.encode_uri;
 
-pub const DecodeError = decodeURI.DecodeError;
-pub const decodeURIAlloc = decodeURI.decodeURIAlloc;
-pub const decodeURIComponentAlloc = decodeURI.decodeURIComponentAlloc;
+pub const DecodeError = decode_uri.DecodeError;
+pub const decodeURIAlloc = decode_uri.decodeURIAlloc;
+pub const decodeURIComponentAlloc = decode_uri.decodeURIComponentAlloc;
 
-pub const EncodeError = encodeURI.EncodeError;
-pub const encodeURIAlloc = encodeURI.encodeURIAlloc;
-pub const encodeURIComponentAlloc = encodeURI.encodeURIComponentAlloc;
+pub const EncodeError = encode_uri.EncodeError;
+pub const encodeURIAlloc = encode_uri.encodeURIAlloc;
+pub const encodeURIComponentAlloc = encode_uri.encodeURIComponentAlloc;
 
-const URL_BYTES_MAX = 64 * 1024; // 64 KiB;
+const url_bytes_max = 64 * 1024; // 64 KiB;
 
 const Command = enum { encode, decode };
-const SubCommand = enum { uri, uriComponent };
+const SubCommand = enum { uri, uri_component };
+
+fn parseSubCommand(value: []const u8) ?SubCommand {
+    if (std.mem.eql(u8, value, "uri")) return .uri;
+    if (std.mem.eql(u8, value, "uriComponent")) return .uri_component;
+    return null;
+}
 
 fn bufferedPrintToStdout(io: std.Io, string: []const u8) !void {
-    var buffer: [URL_BYTES_MAX + 1]u8 = undefined;
+    var buffer: [url_bytes_max + 1]u8 = undefined;
     const line = try std.fmt.bufPrint(&buffer, "{s}\n", .{string});
     try std.Io.File.stdout().writeStreamingAll(io, line);
 }
@@ -40,15 +46,15 @@ pub fn main(init: std.process.Init) !void {
 
     switch (command) {
         .decode => {
-            const subCommand = std.meta.stringToEnum(SubCommand, args.next() orelse "") orelse try fail(init.io, "Should only use uri or uriComponent");
+            const sub_command = parseSubCommand(args.next() orelse "") orelse try fail(init.io, "Should only use uri or uriComponent");
             const uri = args.next() orelse try fail(init.io, "Requires URL");
-            switch (subCommand) {
+            switch (sub_command) {
                 .uri => {
                     const decoded = try decodeURIAlloc(init.gpa, uri[0..]);
                     defer init.gpa.free(decoded);
                     try bufferedPrintToStdout(init.io, decoded);
                 },
-                .uriComponent => {
+                .uri_component => {
                     const decoded = try decodeURIComponentAlloc(init.gpa, uri[0..]);
                     defer init.gpa.free(decoded);
                     try bufferedPrintToStdout(init.io, decoded);
@@ -56,15 +62,15 @@ pub fn main(init: std.process.Init) !void {
             }
         },
         .encode => {
-            const subCommand = std.meta.stringToEnum(SubCommand, args.next() orelse "") orelse try fail(init.io, "Should only use uri or uriComponent");
+            const sub_command = parseSubCommand(args.next() orelse "") orelse try fail(init.io, "Should only use uri or uriComponent");
             const uri = args.next() orelse try fail(init.io, "Requires URL");
-            switch (subCommand) {
+            switch (sub_command) {
                 .uri => {
                     const encoded = try encodeURIAlloc(init.gpa, uri[0..]);
                     defer init.gpa.free(encoded);
                     try bufferedPrintToStdout(init.io, encoded);
                 },
-                .uriComponent => {
+                .uri_component => {
                     const encoded = try encodeURIComponentAlloc(init.gpa, uri[0..]);
                     defer init.gpa.free(encoded);
                     try bufferedPrintToStdout(init.io, encoded);
